@@ -1,5 +1,5 @@
-// WARNING: You will need to generate a free YouTube Data API v3 key
 const API_KEY = 'AIzaSyBBC55AqSHDwuFX68Ogny-lbEfqtVJ6yQU'; 
+// forcing update with comment
 
 let player;
 let shuffledVideoIds = [];
