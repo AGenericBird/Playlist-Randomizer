@@ -1,6 +1,7 @@
 const API_KEY = 'AIzaSyBBC55AqSHDwuFX68Ogny-lbEfqtVJ6yQU'; 
 // forcing update with comment
 let player;
+let isPlayerReady = false; // NEW: The traffic light flag
 let shuffledVideos = []; 
 let currentIndex = 0;
 let isRepeat = false;
@@ -98,7 +99,6 @@ function toggleRepeat() {
     btn.style.backgroundColor = isRepeat ? '#2E7D32' : '#4CAF50'; 
 }
 
-// NEW: Next button logic
 function playNext() {
     if (shuffledVideos.length === 0) return;
     
@@ -113,7 +113,6 @@ function playNext() {
     }
 }
 
-// NEW: Previous button logic
 function playPrevious() {
     if (shuffledVideos.length === 0) return;
     
@@ -121,12 +120,11 @@ function playPrevious() {
         currentIndex--;
         playCurrentVideo();
     } else {
-        // If at the very beginning, just restart the current song
-        player.seekTo(0);
+        // If at the very beginning, restart the current song
+        if (isPlayerReady && player) player.seekTo(0);
     }
 }
 
-// NEW: Jump directly to a clicked song
 function jumpToSong(newIndex) {
     currentIndex = newIndex;
     playCurrentVideo();
@@ -147,14 +145,13 @@ function updateUpcomingUI() {
         return;
     }
 
-    // CHANGED: We now track the 'offsetIndex' so the click knows exactly which song it is
     nextSongs.forEach((song, i) => {
         const actualIndex = currentIndex + 1 + i;
         const li = document.createElement('li');
         
         li.innerText = song.title;
-        li.classList.add('clickable-song'); // Adds CSS styling
-        li.onclick = () => jumpToSong(actualIndex); // Attaches the click event
+        li.classList.add('clickable-song'); 
+        li.onclick = () => jumpToSong(actualIndex); 
         
         list.appendChild(li);
     });
@@ -165,9 +162,12 @@ function playCurrentVideo() {
 
     const currentVideoId = shuffledVideos[currentIndex].id;
 
-    if (player && typeof player.loadVideoById === 'function') {
+    // UPDATED: Strict logic to prevent destroying the player
+    if (player && isPlayerReady) {
+        // Player is fully built and safe to change
         player.loadVideoById(currentVideoId);
-    } else {
+    } else if (!player) {
+        // Player doesn't exist at all, build it safely
         player = new YT.Player('player', {
             height: '390',
             width: '640',
@@ -183,11 +183,12 @@ function playCurrentVideo() {
 }
 
 function onPlayerReady(event) {
+    isPlayerReady = true; // Turn the traffic light green
     event.target.playVideo();
 }
 
 function onPlayerStateChange(event) {
     if (event.data === YT.PlayerState.ENDED) {
-        playNext(); // Reused the playNext logic to handle looping properly
+        playNext(); 
     }
 }
