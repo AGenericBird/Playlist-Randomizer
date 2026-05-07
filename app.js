@@ -1,3 +1,4 @@
+// Google policies applied so that this only works with this page
 const API_KEY = 'AIzaSyBBC55AqSHDwuFX68Ogny-lbEfqtVJ6yQU'; 
 // forcing update with comment
 let player;
@@ -225,4 +226,49 @@ function onPlayerError(event) {
     console.warn(`Playback error (Code: ${event.data}). Skipping to next track.`);
     clearTimeout(watchdogTimer); 
     playNext(); 
+}
+
+
+
+// ... (keep all your other functions the same) ...
+
+// NEW: The function that sends the data to your cloud buffer
+async function logPlayToCloud(videoObj) {
+    try {
+        await fetch(`${SUPABASE_URL}/rest/v1/incoming_plays`, {
+            method: 'POST',
+            headers: {
+                'apikey': SUPABASE_ANON_KEY,
+                'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                video_id: videoObj.id,
+                title: videoObj.title
+            })
+        });
+        console.log(`Logged play for: ${videoObj.title}`);
+    } catch (error) {
+        console.error("Cloud logging failed. Silently skipping.", error);
+    }
+}
+
+// UPDATED: Trigger the log when the video ends
+function onPlayerStateChange(event) {
+    clearTimeout(watchdogTimer); 
+
+    if (event.data === YT.PlayerState.ENDED) {
+        // Grab the current video info before skipping to the next one
+        const finishedVideo = shuffledVideos[currentIndex];
+        
+        // Log it to the cloud asynchronously (doesn't pause the music)
+        logPlayToCloud(finishedVideo); 
+
+        playNext(); 
+    } 
+    else if (event.data === YT.PlayerState.UNSTARTED) {
+        watchdogTimer = setTimeout(() => {
+            playNext();
+        }, 5000); 
+    }
 }
