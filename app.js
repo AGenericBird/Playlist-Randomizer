@@ -5,6 +5,7 @@ let isPlayerReady = false;
 let shuffledVideos = []; 
 let currentIndex = 0;
 let isRepeat = false;
+let watchdogTimer; // NEW: The timer to catch stuck videos
 
 function onYouTubeIframeAPIReady() {
     console.log("YouTube Player API Ready.");
@@ -100,6 +101,7 @@ function toggleRepeat() {
 }
 
 function playNext() {
+    clearTimeout(watchdogTimer); // Always clear timers before moving on
     if (shuffledVideos.length === 0) return;
     
     if (currentIndex < shuffledVideos.length - 1) {
@@ -114,13 +116,13 @@ function playNext() {
 }
 
 function playPrevious() {
+    clearTimeout(watchdogTimer);
     if (shuffledVideos.length === 0) return;
     
     if (currentIndex > 0) {
         currentIndex--;
         playCurrentVideo();
     } else if (isRepeat) {
-        // FIX 1: Loop to the very end of the array if Repeat is ON
         currentIndex = shuffledVideos.length - 1;
         playCurrentVideo();
     } else {
@@ -129,6 +131,7 @@ function playPrevious() {
 }
 
 function jumpToSong(newIndex) {
+    clearTimeout(watchdogTimer);
     currentIndex = newIndex;
     playCurrentVideo();
 }
@@ -175,7 +178,7 @@ function playCurrentVideo() {
             events: {
                 'onReady': onPlayerReady,
                 'onStateChange': onPlayerStateChange,
-                'onError': onPlayerError // FIX 2: Added the error listener
+                'onError': onPlayerError 
             }
         });
     }
@@ -189,13 +192,28 @@ function onPlayerReady(event) {
 }
 
 function onPlayerStateChange(event) {
+    // UPDATED: Every time the state changes, clear the old watchdog timer
+    clearTimeout(watchdogTimer); 
+
     if (event.data === YT.PlayerState.ENDED) {
         playNext(); 
+    } 
+    // NEW: If the player gets stuck in an "UNSTARTED" (-1) state
+    else if (event.data === YT.PlayerState.UNSTARTED) {
+        // Give it 5 seconds to figure it out. If it doesn't play, skip it.
+        watchdogTimer = setTimeout(() => {
+            console.warn("Video took too long to load (Ghost video). Skipping.");
+            playNext();
+        }, 5000); 
     }
 }
 
-// FIX 2: The actual error handling function
 function onPlayerError(event) {
-    console.warn(`Video skipped due to playback error (Code: ${event.data}). It may be restricted from external sites.`);
-    playNext(); // Automatically jump to the next song
+    console.warn(`Playback error (Code: ${event.data}). Skipping to next track.`);
+    clearTimeout(watchdogTimer); 
+    
+    // UPDATED: Give the player 1 full second to process the error before forcing a skip
+    setTimeout(() => {
+        playNext();
+    }, 1000); 
 }
