@@ -1,5 +1,3 @@
-// Google policies applied so that this only works with this page
-const API_KEY = 'AIzaSyBBC55AqSHDwuFX68Ogny-lbEfqtVJ6yQU'; 
 // forcing update with comment
 let player;
 let isPlayerReady = false; 
@@ -51,12 +49,12 @@ async function fetchAllVideos(playlistId) {
     
     try {
         do {
-            const response = await fetch(`https://www.googleapis.com/youtube/v3/playlistItems?part=snippet,contentDetails&maxResults=50&playlistId=${playlistId}&key=${API_KEY}&pageToken=${nextPageToken}`);
+            // Ask your Cloudflare Worker instead of YouTube directly
+            const response = await fetch(`${GATEWAY_URL}/api/get-playlist?playlistId=${playlistId}&pageToken=${nextPageToken}`);
             const data = await response.json();
             
             if (data.error) {
                 console.error("API Error:", data.error.message);
-                alert("API Error: Check console for details.");
                 return [];
             }
 
@@ -235,21 +233,17 @@ function onPlayerError(event) {
 // NEW: The function that sends the data to your cloud buffer
 async function logPlayToCloud(videoObj) {
     try {
-        await fetch(`${SUPABASE_URL}/rest/v1/incoming_plays`, {
+        await fetch(`${GATEWAY_URL}/api/log-play`, {
             method: 'POST',
-            headers: {
-                'apikey': SUPABASE_ANON_KEY,
-                'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-                'Content-Type': 'application/json'
-            },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 video_id: videoObj.id,
                 title: videoObj.title
             })
         });
-        console.log(`Logged play for: ${videoObj.title}`);
+        console.log(`Successfully buffered: ${videoObj.title}`);
     } catch (error) {
-        console.error("Cloud logging failed. Silently skipping.", error);
+        console.error("Cloud logging failed.", error);
     }
 }
 
