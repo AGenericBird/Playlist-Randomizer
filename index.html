@@ -1,21 +1,29 @@
 <!DOCTYPE html>
-<!-- Without knowing anything, I might need to load all the urls in a playlist, having them in a list, shuffle them (maybe in segments), then start playing it? -->
-<html lang = "en">
+<html lang="en">
     <head>
-        <meta name="viewport" content = "width=device-width, initial-scale=1.0">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <meta charset="utf-8">
-        <title>
-            Playlist Randomizer
-        </title>
-        <link rel="stylesheet" href="../CSS/main_decor.css">
+        <title>Playlist Randomizer</title>
+        <link rel="stylesheet" href="/main_decor.css">
     </head>
     <body>
         <header>
-
+            <h1>True Playlist Randomizer</h1>
+            <p>Shuffle large YouTube playlists properly.</p>
         </header>
         <main>
+            <div class="input-group">
+                <input type="text" id="playlist-url" placeholder="Paste YouTube Playlist URL here">
+                <button onclick="loadAndShuffle()">Shuffle & Play</button>
+            </div>
 
+            <div id="player-container">
+                <div id="player"></div>
+            </div>
         </main>
-        <p>Copyright&copy; Michael Laprise</p>
+        <p>Copyright&copy; Dawn Laprise</p>
+
+        <script src="https://www.youtube.com/iframe_api"></script>
+        <script src="app.js"></script>
     </body>
 </html>
