@@ -5,7 +5,7 @@ let isPlayerReady = false;
 let shuffledVideos = []; 
 let currentIndex = 0;
 let isRepeat = false;
-let watchdogTimer; // NEW: The timer to catch stuck videos
+let watchdogTimer; 
 
 function onYouTubeIframeAPIReady() {
     console.log("YouTube Player API Ready.");
@@ -101,7 +101,7 @@ function toggleRepeat() {
 }
 
 function playNext() {
-    clearTimeout(watchdogTimer); // Always clear timers before moving on
+    clearTimeout(watchdogTimer); 
     if (shuffledVideos.length === 0) return;
     
     if (currentIndex < shuffledVideos.length - 1) {
@@ -168,6 +168,9 @@ function playCurrentVideo() {
 
     const currentVideoId = shuffledVideos[currentIndex].id;
 
+    // Start the strict watchdog timer every time a new video is called
+    startWatchdog();
+
     if (player && isPlayerReady) {
         player.loadVideoById(currentVideoId);
     } else if (!player) {
@@ -175,6 +178,10 @@ function playCurrentVideo() {
             height: '390',
             width: '640',
             videoId: currentVideoId,
+            playerVars: {
+                'autoplay': 1, // Force autoplay explicitly
+                'playsinline': 1
+            },
             events: {
                 'onReady': onPlayerReady,
                 'onStateChange': onPlayerStateChange,
@@ -186,34 +193,36 @@ function playCurrentVideo() {
     updateUpcomingUI();
 }
 
+function startWatchdog() {
+    clearTimeout(watchdogTimer);
+    // Give the player exactly 4 seconds to start playing or buffering
+    watchdogTimer = setTimeout(() => {
+        console.warn("Watchdog timeout: Video refused to load. Forcing skip.");
+        playNext();
+    }, 4000);
+}
+
 function onPlayerReady(event) {
     isPlayerReady = true; 
     event.target.playVideo();
 }
 
 function onPlayerStateChange(event) {
-    // UPDATED: Every time the state changes, clear the old watchdog timer
-    clearTimeout(watchdogTimer); 
+    // If the player successfully starts playing, buffering, or is paused by the user,
+    // it is healthy. Cancel the watchdog timer.
+    if (event.data === YT.PlayerState.PLAYING || 
+        event.data === YT.PlayerState.BUFFERING || 
+        event.data === YT.PlayerState.PAUSED) {
+        clearTimeout(watchdogTimer); 
+    }
 
     if (event.data === YT.PlayerState.ENDED) {
         playNext(); 
     } 
-    // NEW: If the player gets stuck in an "UNSTARTED" (-1) state
-    else if (event.data === YT.PlayerState.UNSTARTED) {
-        // Give it 5 seconds to figure it out. If it doesn't play, skip it.
-        watchdogTimer = setTimeout(() => {
-            console.warn("Video took too long to load (Ghost video). Skipping.");
-            playNext();
-        }, 5000); 
-    }
 }
 
 function onPlayerError(event) {
     console.warn(`Playback error (Code: ${event.data}). Skipping to next track.`);
     clearTimeout(watchdogTimer); 
-    
-    // UPDATED: Give the player 1 full second to process the error before forcing a skip
-    setTimeout(() => {
-        playNext();
-    }, 1000); 
+    playNext(); 
 }
