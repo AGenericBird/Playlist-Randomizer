@@ -1,8 +1,7 @@
 const API_KEY = 'AIzaSyBBC55AqSHDwuFX68Ogny-lbEfqtVJ6yQU'; 
 // forcing update with comment
-
 let player;
-let shuffledVideos = []; // Now stores objects: { id, title }
+let shuffledVideos = []; 
 let currentIndex = 0;
 let isRepeat = false;
 
@@ -21,24 +20,19 @@ async function loadAndShuffle() {
 
     document.getElementById('player').innerHTML = "Fetching all videos and titles... This might take a second.";
     
-    // Hide controls while loading
     document.getElementById('player-controls').style.display = 'none';
     document.getElementById('upcoming-container').style.display = 'none';
 
-    // 1. Fetch all videos (Now includes titles)
     const videos = await fetchAllVideos(playlistId);
     
     if (videos.length === 0) return;
 
-    // 2. Apply a true mathematical shuffle
     shuffledVideos = fisherYatesShuffle(videos);
     currentIndex = 0;
 
-    // Show controls now that we have a playlist
     document.getElementById('player-controls').style.display = 'flex';
     document.getElementById('upcoming-container').style.display = 'block';
 
-    // 3. Start playing
     playCurrentVideo();
 }
 
@@ -54,7 +48,6 @@ async function fetchAllVideos(playlistId) {
     
     try {
         do {
-            // CHANGED: part=snippet,contentDetails (so we can get the video titles)
             const response = await fetch(`https://www.googleapis.com/youtube/v3/playlistItems?part=snippet,contentDetails&maxResults=50&playlistId=${playlistId}&key=${API_KEY}&pageToken=${nextPageToken}`);
             const data = await response.json();
             
@@ -65,7 +58,6 @@ async function fetchAllVideos(playlistId) {
             }
 
             if (data.items) {
-                // CHANGED: We now save both the ID and the Title
                 videos.push(...data.items.map(item => ({
                     id: item.contentDetails.videoId,
                     title: item.snippet.title
@@ -92,7 +84,6 @@ function fisherYatesShuffle(array) {
     return array;
 }
 
-// NEW: Reshuffle function
 function reshufflePlaylist() {
     if (shuffledVideos.length === 0) return;
     shuffledVideos = fisherYatesShuffle([...shuffledVideos]);
@@ -100,34 +91,71 @@ function reshufflePlaylist() {
     playCurrentVideo();
 }
 
-// NEW: Toggle repeat
 function toggleRepeat() {
     isRepeat = !isRepeat;
     const btn = document.getElementById('repeat-btn');
     btn.innerText = isRepeat ? '🔁 Repeat: ON' : '🔁 Repeat: OFF';
-    // Visual feedback color
     btn.style.backgroundColor = isRepeat ? '#2E7D32' : '#4CAF50'; 
 }
 
-// NEW: Updates the text list below the video
+// NEW: Next button logic
+function playNext() {
+    if (shuffledVideos.length === 0) return;
+    
+    if (currentIndex < shuffledVideos.length - 1) {
+        currentIndex++;
+        playCurrentVideo();
+    } else if (isRepeat) {
+        currentIndex = 0;
+        playCurrentVideo();
+    } else {
+        alert("You've reached the end of the shuffled playlist!");
+    }
+}
+
+// NEW: Previous button logic
+function playPrevious() {
+    if (shuffledVideos.length === 0) return;
+    
+    if (currentIndex > 0) {
+        currentIndex--;
+        playCurrentVideo();
+    } else {
+        // If at the very beginning, just restart the current song
+        player.seekTo(0);
+    }
+}
+
+// NEW: Jump directly to a clicked song
+function jumpToSong(newIndex) {
+    currentIndex = newIndex;
+    playCurrentVideo();
+}
+
 function updateUpcomingUI() {
     const list = document.getElementById('upcoming-list');
-    list.innerHTML = ''; // Clear current list
+    list.innerHTML = ''; 
     
-    // Get the next 10 songs (slicing prevents lagging the browser on huge playlists)
     const nextSongs = shuffledVideos.slice(currentIndex + 1, currentIndex + 11);
     
     if (nextSongs.length === 0) {
         const li = document.createElement('li');
         li.innerText = isRepeat ? "Playlist ends, then repeats." : "No more upcoming tracks.";
         li.style.fontStyle = "italic";
+        li.style.color = "#888888";
         list.appendChild(li);
         return;
     }
 
-    nextSongs.forEach(song => {
+    // CHANGED: We now track the 'offsetIndex' so the click knows exactly which song it is
+    nextSongs.forEach((song, i) => {
+        const actualIndex = currentIndex + 1 + i;
         const li = document.createElement('li');
+        
         li.innerText = song.title;
+        li.classList.add('clickable-song'); // Adds CSS styling
+        li.onclick = () => jumpToSong(actualIndex); // Attaches the click event
+        
         list.appendChild(li);
     });
 }
@@ -151,7 +179,6 @@ function playCurrentVideo() {
         });
     }
     
-    // Update the UI list every time a new video plays
     updateUpcomingUI();
 }
 
@@ -161,17 +188,6 @@ function onPlayerReady(event) {
 
 function onPlayerStateChange(event) {
     if (event.data === YT.PlayerState.ENDED) {
-        currentIndex++;
-        if (currentIndex < shuffledVideos.length) {
-            playCurrentVideo();
-        } else {
-            // CHANGED: Check if repeat is ON
-            if (isRepeat) {
-                currentIndex = 0; // Reset to beginning
-                playCurrentVideo();
-            } else {
-                alert("You've reached the end of the shuffled playlist!");
-            }
-        }
+        playNext(); // Reused the playNext logic to handle looping properly
     }
 }

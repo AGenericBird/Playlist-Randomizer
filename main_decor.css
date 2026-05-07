@@ -167,3 +167,14 @@ body > p {
     font-size: 0.95rem;
     line-height: 1.4;
 }
+
+/* --- Clickable Song List Items --- */
+.clickable-song {
+    cursor: pointer;
+    transition: color 0.2s ease;
+}
+
+.clickable-song:hover {
+    color: #4CAF50;
+    text-decoration: underline;
+}
