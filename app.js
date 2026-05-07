@@ -2,10 +2,10 @@ const API_KEY = 'AIzaSyBBC55AqSHDwuFX68Ogny-lbEfqtVJ6yQU';
 // forcing update with comment
 
 let player;
-let shuffledVideoIds = [];
+let shuffledVideos = []; // Now stores objects: { id, title }
 let currentIndex = 0;
+let isRepeat = false;
 
-// This function is automatically called by the YouTube IFrame API when it loads
 function onYouTubeIframeAPIReady() {
     console.log("YouTube Player API Ready.");
 }
@@ -19,49 +19,59 @@ async function loadAndShuffle() {
         return;
     }
 
-    document.getElementById('player').innerHTML = "Fetching all videos... This might take a second for large playlists.";
-
-    // 1. Fetch all videos
-    const videoIds = await fetchAllVideos(playlistId);
+    document.getElementById('player').innerHTML = "Fetching all videos and titles... This might take a second.";
     
-    if (videoIds.length === 0) return;
+    // Hide controls while loading
+    document.getElementById('player-controls').style.display = 'none';
+    document.getElementById('upcoming-container').style.display = 'none';
+
+    // 1. Fetch all videos (Now includes titles)
+    const videos = await fetchAllVideos(playlistId);
+    
+    if (videos.length === 0) return;
 
     // 2. Apply a true mathematical shuffle
-    shuffledVideoIds = fisherYatesShuffle(videoIds);
+    shuffledVideos = fisherYatesShuffle(videos);
     currentIndex = 0;
+
+    // Show controls now that we have a playlist
+    document.getElementById('player-controls').style.display = 'flex';
+    document.getElementById('upcoming-container').style.display = 'block';
 
     // 3. Start playing
     playCurrentVideo();
 }
 
-// Extracts the "list=XXXX" part of a YouTube URL
 function extractPlaylistId(url) {
     const reg = /[?&]list=([^#\&\?]+)/;
     const match = url.match(reg);
     return match && match[1] ? match[1] : null;
 }
 
-// Loops through the YouTube API to get all pages of the playlist
 async function fetchAllVideos(playlistId) {
     let videos = [];
     let nextPageToken = '';
     
     try {
         do {
-            const response = await fetch(`https://www.googleapis.com/youtube/v3/playlistItems?part=contentDetails&maxResults=50&playlistId=${playlistId}&key=${API_KEY}&pageToken=${nextPageToken}`);
+            // CHANGED: part=snippet,contentDetails (so we can get the video titles)
+            const response = await fetch(`https://www.googleapis.com/youtube/v3/playlistItems?part=snippet,contentDetails&maxResults=50&playlistId=${playlistId}&key=${API_KEY}&pageToken=${nextPageToken}`);
             const data = await response.json();
             
             if (data.error) {
                 console.error("API Error:", data.error.message);
-                alert("API Error: Did you insert your API key?");
+                alert("API Error: Check console for details.");
                 return [];
             }
 
             if (data.items) {
-                videos.push(...data.items.map(item => item.contentDetails.videoId));
+                // CHANGED: We now save both the ID and the Title
+                videos.push(...data.items.map(item => ({
+                    id: item.contentDetails.videoId,
+                    title: item.snippet.title
+                })));
             }
             
-            // If there's another page of 50 videos, grab the token to fetch them
             nextPageToken = data.nextPageToken || '';
         } while (nextPageToken);
         
@@ -72,7 +82,6 @@ async function fetchAllVideos(playlistId) {
     return videos;
 }
 
-// The Fisher-Yates shuffle algorithm (the industry standard for unbiased shuffling)
 function fisherYatesShuffle(array) {
     let currentIndex = array.length, randomIndex;
     while (currentIndex != 0) {
@@ -83,40 +92,86 @@ function fisherYatesShuffle(array) {
     return array;
 }
 
-// Loads the video into the IFrame player
+// NEW: Reshuffle function
+function reshufflePlaylist() {
+    if (shuffledVideos.length === 0) return;
+    shuffledVideos = fisherYatesShuffle([...shuffledVideos]);
+    currentIndex = 0;
+    playCurrentVideo();
+}
+
+// NEW: Toggle repeat
+function toggleRepeat() {
+    isRepeat = !isRepeat;
+    const btn = document.getElementById('repeat-btn');
+    btn.innerText = isRepeat ? '🔁 Repeat: ON' : '🔁 Repeat: OFF';
+    // Visual feedback color
+    btn.style.backgroundColor = isRepeat ? '#2E7D32' : '#4CAF50'; 
+}
+
+// NEW: Updates the text list below the video
+function updateUpcomingUI() {
+    const list = document.getElementById('upcoming-list');
+    list.innerHTML = ''; // Clear current list
+    
+    // Get the next 10 songs (slicing prevents lagging the browser on huge playlists)
+    const nextSongs = shuffledVideos.slice(currentIndex + 1, currentIndex + 11);
+    
+    if (nextSongs.length === 0) {
+        const li = document.createElement('li');
+        li.innerText = isRepeat ? "Playlist ends, then repeats." : "No more upcoming tracks.";
+        li.style.fontStyle = "italic";
+        list.appendChild(li);
+        return;
+    }
+
+    nextSongs.forEach(song => {
+        const li = document.createElement('li');
+        li.innerText = song.title;
+        list.appendChild(li);
+    });
+}
+
 function playCurrentVideo() {
-    if (shuffledVideoIds.length === 0) return;
+    if (shuffledVideos.length === 0) return;
+
+    const currentVideoId = shuffledVideos[currentIndex].id;
 
     if (player && typeof player.loadVideoById === 'function') {
-        // If player already exists, just load the new video ID
-        player.loadVideoById(shuffledVideoIds[currentIndex]);
+        player.loadVideoById(currentVideoId);
     } else {
-        // Create the player for the first time
         player = new YT.Player('player', {
             height: '390',
             width: '640',
-            videoId: shuffledVideoIds[currentIndex],
+            videoId: currentVideoId,
             events: {
                 'onReady': onPlayerReady,
                 'onStateChange': onPlayerStateChange
             }
         });
     }
+    
+    // Update the UI list every time a new video plays
+    updateUpcomingUI();
 }
 
-// Autoplay when ready
 function onPlayerReady(event) {
     event.target.playVideo();
 }
 
-// Detect when a video ends so we can play the next one in our shuffled array
 function onPlayerStateChange(event) {
     if (event.data === YT.PlayerState.ENDED) {
         currentIndex++;
-        if (currentIndex < shuffledVideoIds.length) {
+        if (currentIndex < shuffledVideos.length) {
             playCurrentVideo();
         } else {
-            alert("You've reached the end of the shuffled playlist!");
+            // CHANGED: Check if repeat is ON
+            if (isRepeat) {
+                currentIndex = 0; // Reset to beginning
+                playCurrentVideo();
+            } else {
+                alert("You've reached the end of the shuffled playlist!");
+            }
         }
     }
 }

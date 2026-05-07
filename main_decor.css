@@ -122,3 +122,48 @@ body > p {
     color: #888888;
     font-size: 0.9rem;
 }
+
+/* --- Player Controls --- */
+#player-controls {
+    margin-top: 20px;
+    display: flex;
+    justify-content: center;
+    gap: 15px;
+    flex-wrap: wrap;
+}
+
+#player-controls button {
+    background-color: #4CAF50;
+    font-size: 0.95rem;
+    padding: 10px 20px;
+}
+
+/* --- Upcoming Tracks --- */
+#upcoming-container {
+    margin-top: 25px;
+    text-align: left;
+    background-color: #e6ece8; /* Matches the background of the main page */
+    padding: 20px;
+    border-radius: 8px;
+    border: 1px solid #cccccc;
+}
+
+#upcoming-container h3 {
+    color: #2E7D32;
+    font-size: 1.2rem;
+    border-bottom: 2px solid #4CAF50;
+    padding-bottom: 8px;
+    margin-bottom: 15px;
+}
+
+#upcoming-list {
+    list-style-type: decimal; /* Adds numbers (1, 2, 3) to the list */
+    padding-left: 25px;
+    color: #333333;
+}
+
+#upcoming-list li {
+    margin-bottom: 8px;
+    font-size: 0.95rem;
+    line-height: 1.4;
+}
