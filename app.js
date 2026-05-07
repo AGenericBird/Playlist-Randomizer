@@ -1,10 +1,12 @@
 // forcing update with comment
+const GATEWAY_URL = 'https://playlist-gateway.milaprise2.workers.dev'; // <--- THIS WAS MISSING
+
 let player;
 let isPlayerReady = false; 
 let shuffledVideos = []; 
 let currentIndex = 0;
 let isRepeat = false;
-let watchdogTimer; 
+let watchdogTimer;
 
 function onYouTubeIframeAPIReady() {
     console.log("YouTube Player API Ready.");
