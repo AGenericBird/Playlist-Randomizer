@@ -1,7 +1,7 @@
 const API_KEY = 'AIzaSyBBC55AqSHDwuFX68Ogny-lbEfqtVJ6yQU'; 
 // forcing update with comment
 let player;
-let isPlayerReady = false; // NEW: The traffic light flag
+let isPlayerReady = false; 
 let shuffledVideos = []; 
 let currentIndex = 0;
 let isRepeat = false;
@@ -119,8 +119,11 @@ function playPrevious() {
     if (currentIndex > 0) {
         currentIndex--;
         playCurrentVideo();
+    } else if (isRepeat) {
+        // FIX 1: Loop to the very end of the array if Repeat is ON
+        currentIndex = shuffledVideos.length - 1;
+        playCurrentVideo();
     } else {
-        // If at the very beginning, restart the current song
         if (isPlayerReady && player) player.seekTo(0);
     }
 }
@@ -162,19 +165,17 @@ function playCurrentVideo() {
 
     const currentVideoId = shuffledVideos[currentIndex].id;
 
-    // UPDATED: Strict logic to prevent destroying the player
     if (player && isPlayerReady) {
-        // Player is fully built and safe to change
         player.loadVideoById(currentVideoId);
     } else if (!player) {
-        // Player doesn't exist at all, build it safely
         player = new YT.Player('player', {
             height: '390',
             width: '640',
             videoId: currentVideoId,
             events: {
                 'onReady': onPlayerReady,
-                'onStateChange': onPlayerStateChange
+                'onStateChange': onPlayerStateChange,
+                'onError': onPlayerError // FIX 2: Added the error listener
             }
         });
     }
@@ -183,7 +184,7 @@ function playCurrentVideo() {
 }
 
 function onPlayerReady(event) {
-    isPlayerReady = true; // Turn the traffic light green
+    isPlayerReady = true; 
     event.target.playVideo();
 }
 
@@ -191,4 +192,10 @@ function onPlayerStateChange(event) {
     if (event.data === YT.PlayerState.ENDED) {
         playNext(); 
     }
+}
+
+// FIX 2: The actual error handling function
+function onPlayerError(event) {
+    console.warn(`Video skipped due to playback error (Code: ${event.data}). It may be restricted from external sites.`);
+    playNext(); // Automatically jump to the next song
 }
